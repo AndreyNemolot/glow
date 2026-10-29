@@ -55,6 +55,52 @@ class DisplayLookTest {
     }
 
     @Test
+    fun dragRightRaisesBrightnessAndHueUntilTheEnds() {
+        val travel = 100f
+        val brighter = DisplayLook.brightnessAfterHorizontalDrag(
+            current = 0.5f,
+            deltaXPx = 50f,
+            travelPx = travel,
+        )
+        val dimmer = DisplayLook.brightnessAfterHorizontalDrag(
+            current = 0.5f,
+            deltaXPx = -1_000f,
+            travelPx = travel,
+        )
+        assertEquals(0.5f + 0.475f, brighter, 0.001f)
+        assertEquals(DisplayLook.MIN_EXTERNAL_BRIGHTNESS, dimmer, 0.001f)
+
+        val shifted = DisplayLook.hueAfterHorizontalDrag(current = 20f, deltaXPx = 10f, travelPx = travel)
+        val floored = DisplayLook.hueAfterHorizontalDrag(current = 20f, deltaXPx = -1_000f, travelPx = travel)
+        assertEquals(56f, shifted, 0.001f)
+        assertEquals(0f, floored, 0.001f)
+    }
+
+    @Test
+    fun horizontalThumbSitsOnTheFinger() {
+        val atRight = DisplayLook.horizontalScaleTopLeft(
+            fingerX = 100f,
+            fingerY = 200f,
+            fraction = 1f,
+            trackWidthPx = 200f,
+            trackHeightPx = 40f,
+            thumbPx = 20f,
+        )
+        assertEquals(-90f, atRight.leftPx, 0.001f)
+        assertEquals(180f, atRight.topPx, 0.001f)
+
+        val atLeft = DisplayLook.horizontalScaleTopLeft(
+            fingerX = 100f,
+            fingerY = 200f,
+            fraction = 0f,
+            trackWidthPx = 200f,
+            trackHeightPx = 40f,
+            thumbPx = 20f,
+        )
+        assertEquals(90f, atLeft.leftPx, 0.001f)
+    }
+
+    @Test
     fun defaultHueMatchesTheOrangeLamp() {
         val palette = DisplayLook.nightPalette(DisplayLook.DEFAULT_INNER_HUE)
         assertColor(0xFFFF8C00.toInt(), palette.backgroundArgb)

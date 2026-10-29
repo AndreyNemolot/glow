@@ -1,6 +1,5 @@
 package com.kitchen.clock
 
-import android.content.pm.ActivityInfo
 import android.view.Window
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
@@ -27,14 +26,4 @@ internal fun Window.applyClockChrome() {
     controller.hide(WindowInsetsCompat.Type.systemBars())
     controller.systemBarsBehavior =
         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-}
-
-// Оба экрана держат один reverseLandscape, без поворота на 180°.
-internal fun Window.lockReverseLandscape() {
-    val params = attributes
-    if (params.screenOrientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE) {
-        return
-    }
-    params.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-    attributes = params
 }

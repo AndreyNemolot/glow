@@ -16,12 +16,8 @@
             android:configChanges="screenLayout|smallestScreenSize|screenSize|orientation"
             android:exported="true"
             android:label="@string/app_name"
-            android:screenOrientation="reverseLandscape"
             android:theme="@style/Theme.Clock"
             android:windowSoftInputMode="adjustResize">
-            <property
-                android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
-                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

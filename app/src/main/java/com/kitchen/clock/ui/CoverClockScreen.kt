@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,7 +63,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-// Часы слева, календарь справа; шкалы яркости и цвета держатся под пальцем.
+// Широкое окно: часы слева от календаря. Высокое: часы над календарём, шкалы снизу.
 @Composable
 fun CoverClockScreen(
     state: FoldClockUiState,
@@ -93,7 +94,7 @@ fun CoverClockScreen(
         animationSpec = tween(durationMillis = CONTROLS_FADE_MS),
         label = "controlsAlpha",
     )
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(PageColor)
@@ -108,6 +109,20 @@ fun CoverClockScreen(
                 }
             },
     ) {
+        val portrait = maxHeight > maxWidth
+        if (portrait) {
+            PortraitCover(
+                state = state,
+                controlsAlpha = controlsAlpha,
+                coverCoordinates = coverCoordinates,
+                openScale = openScale,
+                controlsVisible = controlsVisible,
+                onExternalBrightnessChange = onExternalBrightnessChange,
+                onInnerHueChange = onInnerHueChange,
+                onScaleChange = { openScale = it },
+            )
+        } else {
+        // Альбом: часы слева от календаря, вертикальные шкалы слева.
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -177,6 +192,7 @@ fun CoverClockScreen(
                 MonthDays(cells = state.dayCells)
             }
         }
+        }
         ExitAppButton(
             onExit = onExit,
             enabled = controlsVisible,
@@ -187,16 +203,124 @@ fun CoverClockScreen(
         )
         val scale = openScale
         if (scale != null) {
-            VerticalScale(
-                kind = scale.kind,
+            val scaleModifier = Modifier
+                .zIndex(1f)
+                .offset {
+                    IntOffset(scale.leftPx.roundToInt(), scale.topPx.roundToInt())
+                }
+            if (portrait) {
+                HorizontalScale(
+                    kind = scale.kind,
+                    brightness = state.externalBrightness,
+                    hue = state.innerHueDegrees,
+                    modifier = scaleModifier.size(TrackHeight, TrackWidth),
+                )
+            } else {
+                VerticalScale(
+                    kind = scale.kind,
+                    brightness = state.externalBrightness,
+                    hue = state.innerHueDegrees,
+                    modifier = scaleModifier.size(TrackWidth, TrackHeight),
+                )
+            }
+        }
+    }
+}
+
+// В портрете часы над календарём, иконки шкал внизу в ряд.
+@Composable
+private fun PortraitCover(
+    state: FoldClockUiState,
+    controlsAlpha: Float,
+    coverCoordinates: LayoutCoordinates?,
+    openScale: OpenScale?,
+    controlsVisible: Boolean,
+    onExternalBrightnessChange: (Float) -> Unit,
+    onInnerHueChange: (Float) -> Unit,
+    onScaleChange: (OpenScale?) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 12.dp)
+            .offset(x = state.burnInXDp.dp, y = state.burnInYDp.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val timeSp = (maxWidth.value / 3.4f).coerceIn(48f, 116f)
+                Text(
+                    text = state.timeLabel,
+                    style = TimeStyle.copy(fontSize = timeSp.sp, lineHeight = timeSp.sp),
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+            Text(
+                text = state.dateLine,
+                color = TextColor,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Light,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Column(
+                modifier = Modifier
+                    .padding(top = 28.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = state.monthTitle,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    color = TextColor,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+                WeekdayHeader(labels = state.weekdayLabels)
+                MonthDays(cells = state.dayCells)
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer { alpha = controlsAlpha },
+            horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LookIcon(
+                kind = LookKind.Brightness,
                 brightness = state.externalBrightness,
                 hue = state.innerHueDegrees,
-                modifier = Modifier
-                    .zIndex(1f)
-                    .offset {
-                        IntOffset(scale.leftPx.roundToInt(), scale.topPx.roundToInt())
-                    }
-                    .size(TrackWidth, TrackHeight),
+                coverCoordinates = coverCoordinates,
+                active = openScale?.kind == LookKind.Brightness,
+                enabled = controlsVisible,
+                horizontal = true,
+                onExternalBrightnessChange = onExternalBrightnessChange,
+                onInnerHueChange = onInnerHueChange,
+                onScaleChange = onScaleChange,
+            )
+            LookIcon(
+                kind = LookKind.Color,
+                brightness = state.externalBrightness,
+                hue = state.innerHueDegrees,
+                coverCoordinates = coverCoordinates,
+                active = openScale?.kind == LookKind.Color,
+                enabled = controlsVisible,
+                horizontal = true,
+                onExternalBrightnessChange = onExternalBrightnessChange,
+                onInnerHueChange = onInnerHueChange,
+                onScaleChange = onScaleChange,
             )
         }
     }
@@ -210,6 +334,7 @@ private fun LookIcon(
     coverCoordinates: LayoutCoordinates?,
     active: Boolean,
     enabled: Boolean,
+    horizontal: Boolean = false,
     onExternalBrightnessChange: (Float) -> Unit,
     onInnerHueChange: (Float) -> Unit,
     onScaleChange: (OpenScale?) -> Unit,
@@ -230,11 +355,13 @@ private fun LookIcon(
                 contentDescription = description
             }
             .onGloballyPositioned { iconCoordinates = it }
-            .then(if (enabled) Modifier.pointerInput(kind) {
-                val trackWidthPx = TrackWidth.toPx()
-                val trackHeightPx = TrackHeight.toPx()
+            .then(if (enabled) Modifier.pointerInput(kind, horizontal) {
+                val trackWidthPx = if (horizontal) TrackHeight.toPx() else TrackWidth.toPx()
+                val trackHeightPx = if (horizontal) TrackWidth.toPx() else TrackHeight.toPx()
                 val thumbPx = ThumbSize.toPx()
-                val travelPx = (trackHeightPx - thumbPx).coerceAtLeast(1f)
+                val travelPx = (
+                    (if (horizontal) trackWidthPx else trackHeightPx) - thumbPx
+                    ).coerceAtLeast(1f)
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     val cover = coverState.value
@@ -247,14 +374,25 @@ private fun LookIcon(
                         LookKind.Brightness -> DisplayLook.brightnessFraction(brightnessState.value)
                         LookKind.Color -> DisplayLook.hueFraction(hueState.value)
                     }
-                    val placement = DisplayLook.scaleTopLeft(
-                        fingerX = finger.x,
-                        fingerY = finger.y,
-                        fraction = fraction,
-                        trackWidthPx = trackWidthPx,
-                        trackHeightPx = trackHeightPx,
-                        thumbPx = thumbPx,
-                    )
+                    val placement = if (horizontal) {
+                        DisplayLook.horizontalScaleTopLeft(
+                            fingerX = finger.x,
+                            fingerY = finger.y,
+                            fraction = fraction,
+                            trackWidthPx = trackWidthPx,
+                            trackHeightPx = trackHeightPx,
+                            thumbPx = thumbPx,
+                        )
+                    } else {
+                        DisplayLook.scaleTopLeft(
+                            fingerX = finger.x,
+                            fingerY = finger.y,
+                            fraction = fraction,
+                            trackWidthPx = trackWidthPx,
+                            trackHeightPx = trackHeightPx,
+                            thumbPx = thumbPx,
+                        )
+                    }
                     onScaleState.value(
                         OpenScale(
                             kind = kind,
@@ -266,24 +404,48 @@ private fun LookIcon(
                     var currentHue = hueState.value
                     try {
                         drag(down.id) { change ->
-                            val deltaY = change.position.y - change.previousPosition.y
-                            if (deltaY != 0f) {
-                                when (kind) {
-                                    LookKind.Brightness -> {
-                                        currentBrightness = DisplayLook.brightnessAfterDrag(
-                                            current = currentBrightness,
-                                            deltaYPx = deltaY,
-                                            travelPx = travelPx,
-                                        )
-                                        onBrightnessState.value(currentBrightness)
+                            if (horizontal) {
+                                val deltaX = change.position.x - change.previousPosition.x
+                                if (deltaX != 0f) {
+                                    when (kind) {
+                                        LookKind.Brightness -> {
+                                            currentBrightness = DisplayLook.brightnessAfterHorizontalDrag(
+                                                current = currentBrightness,
+                                                deltaXPx = deltaX,
+                                                travelPx = travelPx,
+                                            )
+                                            onBrightnessState.value(currentBrightness)
+                                        }
+                                        LookKind.Color -> {
+                                            currentHue = DisplayLook.hueAfterHorizontalDrag(
+                                                current = currentHue,
+                                                deltaXPx = deltaX,
+                                                travelPx = travelPx,
+                                            )
+                                            onHueState.value(currentHue)
+                                        }
                                     }
-                                    LookKind.Color -> {
-                                        currentHue = DisplayLook.hueAfterDrag(
-                                            current = currentHue,
-                                            deltaYPx = deltaY,
-                                            travelPx = travelPx,
-                                        )
-                                        onHueState.value(currentHue)
+                                }
+                            } else {
+                                val deltaY = change.position.y - change.previousPosition.y
+                                if (deltaY != 0f) {
+                                    when (kind) {
+                                        LookKind.Brightness -> {
+                                            currentBrightness = DisplayLook.brightnessAfterDrag(
+                                                current = currentBrightness,
+                                                deltaYPx = deltaY,
+                                                travelPx = travelPx,
+                                            )
+                                            onBrightnessState.value(currentBrightness)
+                                        }
+                                        LookKind.Color -> {
+                                            currentHue = DisplayLook.hueAfterDrag(
+                                                current = currentHue,
+                                                deltaYPx = deltaY,
+                                                travelPx = travelPx,
+                                            )
+                                            onHueState.value(currentHue)
+                                        }
                                     }
                                 }
                             }
@@ -395,6 +557,68 @@ private fun VerticalScale(
         val thumbCenter = Offset(
             x = size.width / 2f,
             y = inset + (1f - fraction) * trackHeight,
+        )
+        val thumbRadius = thumbPx / 2f
+        val thumbColor = when (kind) {
+            LookKind.Brightness -> Color.White
+            LookKind.Color -> Color(DisplayLook.colorArgb(hue, saturation = 1f, value = 1f))
+        }
+        drawCircle(color = PageColor, radius = thumbRadius + 2.dp.toPx(), center = thumbCenter)
+        drawCircle(color = thumbColor, radius = thumbRadius, center = thumbCenter)
+        drawCircle(
+            color = Color.White,
+            radius = thumbRadius,
+            center = thumbCenter,
+            style = Stroke(width = 2.dp.toPx()),
+        )
+    }
+}
+
+@Composable
+private fun HorizontalScale(
+    kind: LookKind,
+    brightness: Float,
+    hue: Float,
+    modifier: Modifier = Modifier,
+) {
+    val fraction = when (kind) {
+        LookKind.Brightness -> DisplayLook.brightnessFraction(brightness)
+        LookKind.Color -> DisplayLook.hueFraction(hue)
+    }
+    val hueStops = remember {
+        List(HUE_STOPS) { index ->
+            val stopHue = 360f * index / (HUE_STOPS - 1)
+            Color(DisplayLook.colorArgb(stopHue, saturation = 1f, value = 1f))
+        }
+    }
+    Canvas(modifier = modifier) {
+        val thumbPx = ThumbSize.toPx()
+        val trackPx = TrackStroke.toPx()
+        val inset = thumbPx / 2f
+        val trackWidth = (size.width - thumbPx).coerceAtLeast(0f)
+        val trackLeft = inset
+        val top = (size.height - trackPx) / 2f
+        val brush = when (kind) {
+            LookKind.Brightness -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFF2A2A2A), Color.White),
+                startX = trackLeft,
+                endX = trackLeft + trackWidth,
+            )
+            LookKind.Color -> Brush.horizontalGradient(
+                colors = hueStops,
+                startX = trackLeft,
+                endX = trackLeft + trackWidth,
+            )
+        }
+        drawRoundRect(
+            brush = brush,
+            topLeft = Offset(trackLeft, top),
+            size = Size(trackWidth, trackPx),
+            cornerRadius = CornerRadius(trackPx / 2f, trackPx / 2f),
+        )
+        val thumbCenter = Offset(
+            x = inset + fraction * trackWidth,
+            y = size.height / 2f,
         )
         val thumbRadius = thumbPx / 2f
         val thumbColor = when (kind) {

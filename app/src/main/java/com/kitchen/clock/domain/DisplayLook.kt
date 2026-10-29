@@ -52,6 +52,15 @@ object DisplayLook {
         return coerceHue(current - deltaYPx / travelPx * 360f)
     }
 
+    // Палец вправо увеличивает значение: ноль шкалы слева.
+    fun brightnessAfterHorizontalDrag(current: Float, deltaXPx: Float, travelPx: Float): Float {
+        return brightnessAfterDrag(current, deltaYPx = -deltaXPx, travelPx = travelPx)
+    }
+
+    fun hueAfterHorizontalDrag(current: Float, deltaXPx: Float, travelPx: Float): Float {
+        return hueAfterDrag(current, deltaYPx = -deltaXPx, travelPx = travelPx)
+    }
+
     // Ползунок стоит так, чтобы центр бегунка совпал с пальцем.
     fun scaleTopLeft(
         fingerX: Float,
@@ -66,6 +75,23 @@ object DisplayLook {
         return ScalePlacement(
             leftPx = fingerX - trackWidthPx / 2f,
             topPx = fingerY - thumbCenterFromTop,
+        )
+    }
+
+    // Горизонтальный ползунок: бегунок на пальце, ноль шкалы слева.
+    fun horizontalScaleTopLeft(
+        fingerX: Float,
+        fingerY: Float,
+        fraction: Float,
+        trackWidthPx: Float,
+        trackHeightPx: Float,
+        thumbPx: Float,
+    ): ScalePlacement {
+        val travel = (trackWidthPx - thumbPx).coerceAtLeast(0f)
+        val thumbCenterFromLeft = thumbPx / 2f + fraction.coerceIn(0f, 1f) * travel
+        return ScalePlacement(
+            leftPx = fingerX - thumbCenterFromLeft,
+            topPx = fingerY - trackHeightPx / 2f,
         )
     }
 

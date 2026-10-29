@@ -1,6 +1,5 @@
 package com.kitchen.clock
 
-import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.hardware.display.DisplayManager
@@ -15,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -35,10 +37,10 @@ import com.kitchen.clock.domain.DisplayMode
 import com.kitchen.clock.domain.activityShowsNightLight
 import com.kitchen.clock.ui.CoverClockScreen
 import com.kitchen.clock.ui.ExitAppButton
-import com.kitchen.clock.ui.FixedCoverOrientation
 import com.kitchen.clock.ui.FoldClockGraph
 import com.kitchen.clock.ui.FoldClockUiState
 import com.kitchen.clock.ui.NightLightScreen
+import com.kitchen.clock.ui.StartupGlow
 import com.kitchen.clock.ui.SessionOwners
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -72,8 +74,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-        window.lockReverseLandscape()
         window.applyClockChrome()
         val viewModel = graph.viewModel
         viewModel.bind(this)
@@ -123,7 +123,6 @@ class MainActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         window.applyClockChrome()
-        syncOrientation()
         refreshInnerDisplay()
     }
 
@@ -131,7 +130,6 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             window.applyClockChrome()
-            syncOrientation()
         }
     }
 
@@ -170,22 +168,19 @@ class MainActivity : ComponentActivity() {
             setViewTreeSavedStateRegistryOwner(owners)
             setContent {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                FixedCoverOrientation(modifier = Modifier.fillMaxSize()) {
-                    CoverClockScreen(
-                        state = state,
-                        onExternalBrightnessChange = viewModel::setExternalBrightness,
-                        onInnerHueChange = viewModel::setInnerHue,
-                        onExit = ::finish,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                CoverClockScreen(
+                    state = state,
+                    onExternalBrightnessChange = viewModel::setExternalBrightness,
+                    onInnerHueChange = viewModel::setInnerHue,
+                    onExit = ::finish,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
         presenter.setContentView(composeView)
         coverWindow = presenter.window
         appliedCoverBrightness = null
         presenter.window?.applyClockChrome()
-        syncOrientation()
         applyNightBrightness(
             viewModel.uiState.value.copy(onInnerDisplay = viewModel.onInnerDisplay.value),
         )
@@ -201,22 +196,12 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "coverContent=destroyed")
     }
 
-    // Внутренний и внешний экраны независимо держат один reverseLandscape.
-    private fun syncOrientation() {
-        if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-        }
-        window.lockReverseLandscape()
-        coverWindow?.lockReverseLandscape()
-    }
-
     private fun refreshInnerDisplay() {
         val viewModel = graph.viewModel
         if (!viewModel.isBound(this)) {
             return
         }
         viewModel.refreshInnerDisplay(this)
-        syncOrientation()
         val state = viewModel.uiState.value
         applyNightBrightness(state.copy(onInnerDisplay = viewModel.onInnerDisplay.value))
         val waitingForInner = state.nightLightOn &&
@@ -262,7 +247,6 @@ class MainActivity : ComponentActivity() {
             val params = window.attributes
             params.screenBrightness = brightness
             window.attributes = params
-            syncOrientation()
             Log.i(TAG, "brightness=$brightness orange=$orange mode=${state.displayMode}")
         }
         applyCoverBrightness(state.externalBrightness)
@@ -302,6 +286,7 @@ private fun ActivityDisplay(
         mode = state.displayMode,
         nightLightOn = state.nightLightOn,
     )
+    var showStartupGlow by remember { mutableStateOf(true) }
     Box(modifier = Modifier.fillMaxSize()) {
         if (orange) {
             val palette = DisplayLook.nightPalette(state.innerHueDegrees)
@@ -323,6 +308,12 @@ private fun ActivityDisplay(
                 onInnerHueChange = onInnerHueChange,
                 onExit = onExit,
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (showStartupGlow) {
+            StartupGlow(
+                modifier = Modifier.fillMaxSize(),
+                onFinished = { showStartupGlow = false },
             )
         }
     }
