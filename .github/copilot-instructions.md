@@ -6,6 +6,8 @@
 
 Do not change `ui/theme/Theme.kt`, color resources, launcher icons, or the Gradle wrapper.
 
+Release uses AGP 9 `optimization { enable = true }` (R8 code shrinking, obfuscation, and optimized resource shrinking). R8 full mode stays at the AGP default. R8 runs in a separate JVM via the `local` execution profile (`android.settings.executionProfile` in `gradle.properties`). Do not set `android.enableR8.fullMode=false`. Keep rules, if any, go in `src/<variant>/keepRules/*.keep`.
+
 ## Behavior
 
 - Night light hysteresis lives only in `domain/UpdateNightLight` and uses the hinge angle: `null` keeps the previous value, `>= 36` (20% of 180°) turns the inner display on, `<= 27` (15%) turns it off, otherwise keep the previous value. `domain` has no `android.*` imports.

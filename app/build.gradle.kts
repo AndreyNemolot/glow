@@ -21,8 +21,10 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("debug")
+            // R8: сжатие кода и ресурсов плюс обфускация. Full mode включён в AGP по умолчанию.
             optimization {
-                enable = false
+                enable = true
             }
         }
     }
